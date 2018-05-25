@@ -17,25 +17,30 @@ This repository is based on the official code of [YOLOv3](https://github.com/pjr
 * convert yolov3.weights to pytorch
 
 ```shell
-cd YOLOv3_pytorch
+cd YOLOv3_Pytorch
 ./make.sh
 
+mkdir weights
+cd weights
+wget https://pjreddie.com/media/files/yolov3.weights
 python convert_darknet.py 
+# we will get the convert_yolov3.pth
 ```
 
 # Demo
 
 ```python
+
 python demo.py --images images --save_path ./output --weights ./weights/convert_yolov3.pth
 
 ```
 
 ## Example
-![](./output/output_person.jpg)
+![](https://github.com/yqyao/YOLOv3_Pytorch.git/output/output_person.jpg)
 
 
 ## References
-- YOLOv3: An Incremental Improvemet (https://pjreddie.com/media/files/papers/YOLOv3.pdf)
+- [YOLOv3: An Incremental Improvemet](https://pjreddie.com/media/files/papers/YOLOv3.pdf)
 
 - [Original Implementation (Darknet)](https://github.com/pjreddie/darknet)
 
