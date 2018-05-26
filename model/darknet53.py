@@ -103,7 +103,7 @@ class Darknet19(nn.Module):
         c4 = self.layer4(c3)
         c5 = self.layer5(c4)
 
-def predict_conv_list1():
+def predict_conv_list1(num_classes):
     layers = list()
     layers += [ConvBN(1024, 512, kernel_size=1, stride=1, padding=0)]
     layers += [ConvBN(512, 1024, kernel_size=3, stride=1, padding=1)]
@@ -111,10 +111,10 @@ def predict_conv_list1():
     layers += [ConvBN(512, 1024, kernel_size=3, stride=1, padding=1)]
     layers += [ConvBN(1024, 512, kernel_size=1, stride=1, padding=0)]
     layers += [ConvBN(512, 1024, kernel_size=3, stride=1, padding=1)]
-    layers += [nn.Conv2d(1024, 255, kernel_size=1, stride=1, padding=0)]
+    layers += [nn.Conv2d(1024, (5 + num_classes) * 3, kernel_size=1, stride=1, padding=0)]
     return layers
 
-def predict_conv_list2():
+def predict_conv_list2(num_classes):
     layers = list()
     layers += [ConvBN(768, 256, kernel_size=1, stride=1, padding=0)]
     layers += [ConvBN(256, 512, kernel_size=3, stride=1, padding=1)]
@@ -122,10 +122,10 @@ def predict_conv_list2():
     layers += [ConvBN(256, 512, kernel_size=3, stride=1, padding=1)]
     layers += [ConvBN(512, 256, kernel_size=1, stride=1, padding=0)]
     layers += [ConvBN(256, 512, kernel_size=3, stride=1, padding=1)]
-    layers += [nn.Conv2d(512, 255, kernel_size=1, stride=1, padding=0)]
+    layers += [nn.Conv2d(512, (5 + num_classes) * 3, kernel_size=1, stride=1, padding=0)]
     return layers
 
-def predict_conv_list3():
+def predict_conv_list3(num_classes):
     layers = list()
     layers += [ConvBN(384, 128, kernel_size=1, stride=1, padding=0)]
     layers += [ConvBN(128, 256, kernel_size=3, stride=1, padding=1)]
@@ -133,7 +133,7 @@ def predict_conv_list3():
     layers += [ConvBN(128, 256, kernel_size=3, stride=1, padding=1)]
     layers += [ConvBN(256, 128, kernel_size=1, stride=1, padding=0)]
     layers += [ConvBN(128, 256, kernel_size=3, stride=1, padding=1)]
-    layers += [nn.Conv2d(256, 255, kernel_size=1, stride=1, padding=0)]
+    layers += [nn.Conv2d(256, (5 + num_classes) * 3, kernel_size=1, stride=1, padding=0)]
     return layers
 
 
@@ -146,11 +146,11 @@ class Darknet53(nn.Module):
         self.layer3 = self._make_layer(128, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(256, num_blocks[3], stride=2)
         self.layer5 = self._make_layer(512, num_blocks[4], stride=2)
-        self.predict_conv_list1 = nn.ModuleList(predict_conv_list1())
+        self.predict_conv_list1 = nn.ModuleList(predict_conv_list1(num_classes))
         self.smooth_conv1 = ConvBN(512, 256, kernel_size=1, stride=1, padding=0)
-        self.predict_conv_list2 = nn.ModuleList(predict_conv_list2())
+        self.predict_conv_list2 = nn.ModuleList(predict_conv_list2(num_classes))
         self.smooth_conv2 = ConvBN(256, 128, kernel_size=1, stride=1, padding=0)
-        self.predict_conv_list3 = nn.ModuleList(predict_conv_list3())
+        self.predict_conv_list3 = nn.ModuleList(predict_conv_list3(num_classes))
         self.detection = DetectionLayer(anchors, input_dim, num_classes)
 
     def _make_layer(self, ch_in, num_blocks, stride=1):
