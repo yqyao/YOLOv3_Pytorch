@@ -49,6 +49,7 @@ python eval.py --weights ./weights/convert_yolov3_voc.pth -d VOC --input_wh (416
 > darknet voc is trained by darknet, pytorch voc is trained by this repository
 
 **results**
+
 | darknet voc | pytorch voc |
 |:-:          |:-:          |
 | 76.1 %      |      75.2%  |
