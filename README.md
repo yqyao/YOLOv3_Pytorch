@@ -63,7 +63,8 @@ python demo.py --images images --save_path ./output --weights ./weights/convert_
 ```
 
 ## Example
-![](https://github.com/yqyao/YOLOv3_Pytorch.git/output/output_person.jpg)
+<img align="left" src= "https://github.com/yqyao/YOLOv3_Pytorch/blob/master/output/output_person.jpg">
+<!-- ![](https://github.com/yqyao/YOLOv3_Pytorch.git/output/output_person.jpg) -->
 
 
 ## References
