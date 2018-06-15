@@ -36,11 +36,13 @@ python convert_darknet.py --version coco --weights ./weights/yolov3.weights --sa
 
 * structure
 
-./data/datasets/VOCdevkit0712/VOC0712/Annotations
-./data/datasets/VOCdevkit0712/VOC0712/ImageSets
-./data/datasets/VOCdevkit0712/VOC0712/JPEGImages
+./data/datasets/VOCdevkit0712/VOC0712/Annotations  
+./data/datasets/VOCdevkit0712/VOC0712/ImageSets  
+./data/datasets/VOCdevkit0712/VOC0712/JPEGImages  
 
-**COCO** is same with [COCO](https://github.com/yqyao/DRFNet#coco-dataset)
+* COCO 
+
+Same with [COCO](https://github.com/yqyao/DRFNet#coco-dataset)
 
 ### train
 > you can train multiscale by changing data/config voc_config multiscale
