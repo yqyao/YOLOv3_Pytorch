@@ -23,8 +23,9 @@ cd YOLOv3_Pytorch
 mkdir weights
 cd weights
 wget https://pjreddie.com/media/files/yolov3.weights
-python convert_darknet.py 
-# we will get the convert_yolov3.pth
+cd ..
+python convert_darknet.py --version coco --weights ./weights/yolov3.weights --save_name ./weights/convert_yolov3_coco.pth
+# we will get the convert_yolov3_coco.pth
 ```
 
 ## Train
@@ -33,17 +34,36 @@ python convert_darknet.py
 ### dataset
 [merge VOC dataset](https://github.com/yqyao/DRFNet#voc-dataset)
 
+* structure
+
+./data/datasets/VOCdevkit0712/VOC0712/Annotations
+./data/datasets/VOCdevkit0712/VOC0712/ImageSets
+./data/datasets/VOCdevkit0712/VOC0712/JPEGImages
+
+**COCO** is same with [COCO](https://github.com/yqyao/DRFNet#coco-dataset)
+
 ### train
 > you can train multiscale by changing data/config voc_config multiscale
 
+* convert weights
+```shell
+cd weights
+wget wget https://pjreddie.com/media/files/darknet53.conv.74
+cd ../
+python convert_darknet.py --version darknet53 --weights ./weights/darknet53.conv.74 --save_name ./weights/convert_darknet53.pth
+```
+
+* train yolov3
+
 ```python
-python train.py --size (416, 416) -b 64 --subdivisions 4 -d VOC
+python train.py --size (416, 416) -b 64 --subdivisions 4 -d VOC --basenet ./weights/convert_darknet53.pth
 
 ```
 
 ### eval
 
 ```python
+
 python eval.py --weights ./weights/convert_yolov3_voc.pth -d VOC --input_wh (416, 416)
 ```
 > darknet voc is trained by darknet, pytorch voc is trained by this repository
@@ -58,7 +78,7 @@ python eval.py --weights ./weights/convert_yolov3_voc.pth -d VOC --input_wh (416
 
 ```python
 
-python demo.py --images images --save_path ./output --weights ./weights/convert_yolov3.pth -d COCO
+python demo.py --images images --save_path ./output --weights ./weights/convert_yolov3_coco.pth -d COCO
 
 ```
 

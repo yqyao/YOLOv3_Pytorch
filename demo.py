@@ -33,7 +33,7 @@ def arg_parse():
     parser.add_argument("--dataset", dest = "dataset", help = "VOC or COCO", default = 'VOC')
     parser.add_argument("--weights", dest = 'weights',
                         help = "weightsfile",
-                        default = "./weights/convert_yolov3_voc.pth", type = str)
+                        default = "./weights/convert_yolov3_coco.pth", type = str)
     parser.add_argument('--cuda', default=True, type=str,
                     help='Use cuda to train model')
     parser.add_argument('--use_pad', default=True, type=str,
