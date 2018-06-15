@@ -28,7 +28,7 @@ def arg_parse():
                         "Image / Directory containing images to perform detection upon",default = "images", type = str)
     parser.add_argument("--confidence", dest = "confidence", help = "Object Confidence to filter predictions", default = 0.1)
     parser.add_argument("--nms_thresh", dest = "nms_thresh", help = "NMS Threshhold", default = 0.4)
-    parser.add_argument("--input_wh", dest = "input_wh", help = "input_wh", default = (416, 416))
+    parser.add_argument("--input_wh", dest = "input_wh", type=int, nargs=2, default = [416, 416])
     parser.add_argument("--save_path", dest = "save_path", help = "coco name path", default = './output')
     parser.add_argument("--dataset", dest = "dataset", help = "VOC or COCO", default = 'VOC')
     parser.add_argument("--weights", dest = 'weights',

@@ -58,7 +58,7 @@ python convert_darknet.py --version darknet53 --weights ./weights/darknet53.conv
 * train yolov3
 
 ```python
-python train.py --size (416, 416) -b 64 --subdivisions 4 -d VOC --basenet ./weights/convert_darknet53.pth
+python train.py --input_wh 416 416 -b 64 --subdivisions 4 -d VOC --basenet ./weights/convert_darknet53.pth
 
 ```
 
@@ -66,15 +66,16 @@ python train.py --size (416, 416) -b 64 --subdivisions 4 -d VOC --basenet ./weig
 
 ```python
 
-python eval.py --weights ./weights/convert_yolov3_voc.pth -d VOC --input_wh (416, 416)
+python eval.py --weights ./weights/convert_yolov3_voc.pth -d VOC --input_wh 416 416
 ```
 > darknet voc is trained by darknet, pytorch voc is trained by this repository
 
 **results**
 
-| darknet voc | pytorch voc |
-|:-:          |:-:          |
-| 76.1 %      |      75.2%  |
+| darknet voc 608 | darknet voc 416 | pytorch voc 608| pytorch voc 416|
+|:-:              |:-:              | :-:            |:-:             |
+| 77.2 %          |      76.2%      |      ?         |          75.2% |
+|       27ms      |       18ms      |        27ms    |       18ms     |
 
 ## Demo
 

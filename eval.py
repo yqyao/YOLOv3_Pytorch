@@ -5,7 +5,7 @@ from __future__ import division
 import time
 import torch
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1" 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0" 
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.backends.cudnn as cudnn
@@ -33,7 +33,7 @@ def arg_parse():
     parser.add_argument('--dataset', default='VOC',
                     help='VOC ,VOC0712++ or COCO dataset')
     parser.add_argument("--nms_thresh", dest = "nms_thresh", help = "NMS Threshhold", default = 0.4)
-    parser.add_argument("--input_wh", dest = "input_wh", help = "input wh", default = (416, 416))
+    parser.add_argument("--input_wh", dest = "input_wh", type=int, nargs=2, default = [416, 416])
     parser.add_argument("--weights", dest = 'weights',
                         help = "weightsfile",
                         default = "./weights/yolov3_COCO_epoches_10_0607.pth", type = str)

@@ -38,10 +38,11 @@ def _crop(image, boxes, labels):
     while True:
         mode = random.choice((
             None,
+            (0.3, None),
             (0.5, None),
             (0.7, None),
             (0.9, None),
-            # (None, None),
+            (None, None),
         ))
 
         if mode is None:

@@ -30,8 +30,7 @@ def arg_parse():
         description='Yolov3 pytorch Training')
     parser.add_argument('-v', '--version', default='yolov3',
                         help='')
-    parser.add_argument('--input_wh', default=(416, 416),
-                        help='input size.')
+    parser.add_argument("--input_wh", dest = "input_wh", type=int, nargs=2, default = [416, 416])
     parser.add_argument('-d', '--dataset', default='VOC',
                         help='VOC or COCO dataset')
     parser.add_argument('-b', '--batch_size', default=64,
