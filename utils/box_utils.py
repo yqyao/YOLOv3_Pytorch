@@ -11,39 +11,43 @@ import time
 from utils.nms_wrapper import nms
 
 
-def get_rects(detection, input_dim, ori_dim, use_pad=False):
-    if use_pad:
-        scaling_factor = min(input_dim / ori_dim[0], input_dim / ori_dim[1])
-        detection[:,[1,3]] -= (input_dim - scaling_factor * ori_dim[0]) / 2
-        detection[:,[2,4]] -= (input_dim - scaling_factor * ori_dim[1]) / 2
-        detection[:,1:5] /= scaling_factor
-    else:
-        detection[:,[1,3]] /= input_dim
-        detection[:,[2,4]] /= input_dim
-        detection[:, [1,3]] *= ori_dim[0]
-        detection[:, [2,4]] *= ori_dim[1]
-    for i in range(detection.shape[0]):
-        detection[i, [1,3]] = torch.clamp(detection[i, [1,3]], 0.0, ori_dim[0])
-        detection[i, [2,4]] = torch.clamp(detection[i, [2,4]], 0.0, ori_dim[1])
+def get_rects(detection, input_wh, ori_wh, use_pad=False):
+    if len(detection) > 0:
+        if use_pad:
+            scaling_factor = min(input_wh[0] / ori_wh[0], input_wh[1] / ori_wh[1])
+            detection[:,[1,3]] -= (input_wh[0] - scaling_factor * ori_wh[0]) / 2
+            detection[:,[2,4]] -= (input_wh[1] - scaling_factor * ori_wh[1]) / 2
+            detection[:,1:5] /= scaling_factor
+        else:
+            detection[:,[1,3]] /= input_wh[0]
+            detection[:,[2,4]] /= input_wh[1]
+            detection[:, [1,3]] *= ori_wh[0]
+            detection[:, [2,4]] *= ori_wh[1]
+        for i in range(detection.shape[0]):
+            detection[i, [1,3]] = torch.clamp(detection[i, [1,3]], 0.0, ori_wh[0])
+            detection[i, [2,4]] = torch.clamp(detection[i, [2,4]], 0.0, ori_wh[1])
     return detection
 
 def draw_rects(img, rects, classes):
+    print(rects)
     for rect in rects:
-        left_top = tuple(rect[1:3].int())
-        right_bottom = tuple(rect[3:5].int())
-        cls_id = int(rect[-1])
-        label = "{0}".format(classes[cls_id])
-        class_len = len(classes)
-        offset = cls_id * 123457 % class_len
-        red   = get_color(2, offset, class_len)
-        green = get_color(1, offset, class_len)
-        blue  = get_color(0, offset, class_len)        
-        color = (blue, green, red)
-        cv2.rectangle(img, left_top, right_bottom, color, 2)
-        t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 1 , 1)[0]
-        right_bottom = left_top[0] + t_size[0] + 3, left_top[1] - t_size[1] - 4
-        cv2.rectangle(img, left_top, right_bottom, color, -1)
-        cv2.putText(img, label, (left_top[0], left_top[1] - t_size[1] - 4), cv2.FONT_HERSHEY_PLAIN, 1, [225,255,255], 1)
+        if rect[5] > 0.1:
+            left_top = (int(rect[0]), int(rect[1]))
+            right_bottom = (int(rect[2]), int(rect[3]))
+            score = round(rect[4], 3)
+            cls_id = int(rect[-1])
+            label = "{0}".format(classes[cls_id])
+            class_len = len(classes)
+            offset = cls_id * 123457 % class_len
+            red   = get_color(2, offset, class_len)
+            green = get_color(1, offset, class_len)
+            blue  = get_color(0, offset, class_len)        
+            color = (blue, green, red)
+            cv2.rectangle(img, left_top, right_bottom, color, 2)
+            t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 1 , 1)[0]
+            right_bottom = left_top[0] + t_size[0] + 3, left_top[1] - t_size[1] - 4
+            cv2.rectangle(img, left_top, right_bottom, color, -1)
+            cv2.putText(img, str(label)+str(score), (left_top[0], left_top[1] - t_size[1] - 4), cv2.FONT_HERSHEY_PLAIN, 1, [225,255,255], 1)
     return img        
 
 def get_color(c, x, max_val):
@@ -65,254 +69,335 @@ def unique(tensor):
     tensor_res.copy_(unique_tensor)
     return tensor_res
 
-def bbox_iou(box1, box2):
+def point_form(boxes):
+    """ Convert prior_boxes to (xmin, ymin, xmax, ymax)
+    representation for comparison to point form ground truth data.
+    Args:
+        boxes: (tensor) center-size default boxes from priorbox layers.
+    Return:
+        boxes: (tensor) Converted xmin, ymin, xmax, ymax form of boxes.
     """
-    Returns the IoU of two bounding boxes 
-    
-    """
-    #Get the coordinates of bounding boxes
-    b1_x1, b1_y1, b1_x2, b1_y2 = box1[:,0], box1[:,1], box1[:,2], box1[:,3]
-    b2_x1, b2_y1, b2_x2, b2_y2 = box2[:,0], box2[:,1], box2[:,2], box2[:,3]
-    
-    #get the corrdinates of the intersection rectangle
-    inter_rect_x1 =  torch.max(b1_x1, b2_x1)
-    inter_rect_y1 =  torch.max(b1_y1, b2_y1)
-    inter_rect_x2 =  torch.min(b1_x2, b2_x2)
-    inter_rect_y2 =  torch.min(b1_y2, b2_y2)
-    
-    #Intersection area
-    if torch.cuda.is_available():
-            inter_area = torch.max(inter_rect_x2 - inter_rect_x1 + 1,torch.zeros(inter_rect_x2.shape).cuda())*torch.max(inter_rect_y2 - inter_rect_y1 + 1, torch.zeros(inter_rect_x2.shape).cuda())
-    else:
-            inter_area = torch.max(inter_rect_x2 - inter_rect_x1 + 1,torch.zeros(inter_rect_x2.shape))*torch.max(inter_rect_y2 - inter_rect_y1 + 1, torch.zeros(inter_rect_x2.shape))
-    
-    #Union Area
-    b1_area = (b1_x2 - b1_x1 + 1)*(b1_y2 - b1_y1 + 1)
-    b2_area = (b2_x2 - b2_x1 + 1)*(b2_y2 - b2_y1 + 1)
-    
-    iou = inter_area / (b1_area + b2_area - inter_area)
-    
-    return iou
+    return torch.cat((boxes[:, :2] - boxes[:, 2:]/2,     # xmin, ymin
+                     boxes[:, :2] + boxes[:, 2:]/2), 1)  # xmax, ymax
 
-def predict_transform(prediction, inp_dim, anchors, num_classes, CUDA = True):
-    batch_size = prediction.size(0)
-    stride =  inp_dim // prediction.size(2)
-    grid_size = inp_dim // stride
-    bbox_attrs = 5 + num_classes
+def center_size(boxes):
+    """ Convert prior_boxes to (cx, cy, w, h)
+    representation for comparison to center-size form ground truth data.
+    Args:
+        boxes: (tensor) point_form boxes
+    Return:
+        boxes: (tensor) Converted xmin, ymin, xmax, ymax form of boxes.
+    """
+    return torch.cat([(boxes[:, 2:] + boxes[:, :2])/2, boxes[:, 2:] - boxes[:, :2]], 1)  # w, h
+
+
+def intersect(box_a, box_b):
+    """ We resize both tensors to [A,B,2] without new malloc:
+    [A,2] -> [A,1,2] -> [A,B,2]
+    [B,2] -> [1,B,2] -> [A,B,2]
+    Then we compute the area of intersect between box_a and box_b.
+    Args:
+      box_a: (tensor) bounding boxes, Shape: [A,4].
+      box_b: (tensor) bounding boxes, Shape: [B,4].
+    Return:
+      (tensor) intersection area, Shape: [A,B].
+    """
+    # print(box_a)
+    A = box_a.size(0)
+    B = box_b.size(0)
+    max_xy = torch.min(box_a[:, 2:].unsqueeze(1).expand(A, B, 2),
+                       box_b[:, 2:].unsqueeze(0).expand(A, B, 2))
+    min_xy = torch.max(box_a[:, :2].unsqueeze(1).expand(A, B, 2),
+                       box_b[:, :2].unsqueeze(0).expand(A, B, 2))
+    inter = torch.clamp((max_xy - min_xy), min=0)
+    return inter[:, :, 0] * inter[:, :, 1]
+
+
+def jaccard(box_a, box_b):
+    """Compute the jaccard overlap of two sets of boxes.  The jaccard overlap
+    is simply the intersection over union of two boxes.  Here we operate on
+    ground truth boxes and default boxes.
+    E.g.:
+        A ∩ B / A ∪ B = A ∩ B / (area(A) + area(B) - A ∩ B)
+    Args:
+        box_a: (tensor) Ground truth bounding boxes, Shape: [num_objects,4]
+        box_b: (tensor) Prior boxes from priorbox layers, Shape: [num_priors,4]
+    Return:
+        jaccard overlap: (tensor) Shape: [box_a.size(0), box_b.size(0)]
+    """
+    inter = intersect(box_a, box_b)
+    area_a = ((box_a[:, 2]-box_a[:, 0]) *
+              (box_a[:, 3]-box_a[:, 1])).unsqueeze(1).expand_as(inter)  # [A,B]
+    area_b = ((box_b[:, 2]-box_b[:, 0]) *
+              (box_b[:, 3]-box_b[:, 1])).unsqueeze(0).expand_as(inter)  # [A,B]
+    union = area_a + area_b - inter
+    return inter / union  # [A,B]
+
+def trans_anchors(anchors):
+    new_anchors = torch.zeros((anchors.size(0), 4))
+    new_anchors[:, :2] += 2000
+    new_anchors[:, 2:] = anchors[:,]
+    return point_form(new_anchors)
+
+def trans_truths(truths):
+    new_truths = torch.zeros((truths.size(0), 4))
+    new_truths[:, :2] += 2000
+    new_truths[:, 2:] = truths[:, 2:4]
+    return point_form(new_truths)
+
+def int_index(anchors_mask, val):
+    for i in range(len(anchors_mask)):
+        if val == anchors_mask[i]:
+            return i
+    return -1
+
+def encode_targets_all(input_wh, truths, labels, best_anchor_idx, anchors, feature_dim, num_pred, back_mask):
+    scale = torch.ones(num_pred).cuda()
+    encode_truths = torch.zeros((num_pred, 6)).cuda()
+    fore_mask = torch.zeros(num_pred).cuda()
+    # l_dim, m_dim, h_dim = feature_dim
+    l_grid_wh, m_grid_wh, h_grid_wh = feature_dim
+    for i in range(best_anchor_idx.size(0)):
+        index = 0
+        grid_wh = (0, 0)
+        # mask [0, 1, 2]
+        if best_anchor_idx[i].item() < 2.1:
+            grid_wh = l_grid_wh
+            index_begin = 0
+        # mask [3, 4, 5]
+        elif best_anchor_idx[i].item() < 5.1:
+            grid_wh = m_grid_wh
+            index_begin = l_grid_wh[0] * l_grid_wh[1] * 3
+        # mask [6, 7, 8]
+        else:
+            grid_wh = h_grid_wh
+            index_begin = (l_grid_wh[0]*l_grid_wh[1] + m_grid_wh[0]*m_grid_wh[1]) * 3
+        x = (truths[i][0] / input_wh[0]) * grid_wh[0]  
+        y = (truths[i][1] / input_wh[1]) * grid_wh[1]
+        floor_x, floor_y = math.floor(x), math.floor(y)
+        anchor_idx = best_anchor_idx[i].int().item() % 3
+        index = index_begin + floor_y * grid_wh[0] * 3 + floor_x * 3 + anchor_idx
+
+        scale[index] = scale[index] + 1. - (truths[i][2] / input_wh[0]) * (truths[i][3] / input_wh[1])
+
+        # encode targets x, y, w, h, objectness, class
+        truths[i][0] = x - floor_x
+        truths[i][1] = y - floor_y
+        truths[i][2] = torch.log(truths[i][2] / anchors[best_anchor_idx[i]][0] + 1e-8)
+        truths[i][3] = torch.log(truths[i][3] / anchors[best_anchor_idx[i]][1] + 1e-8)
+        encode_truths[index, :4] = truths[i]
+        encode_truths[index, 4] = 1.
+        encode_truths[index, 5] = labels[i].int().item()
+
+        # set foreground mask to 1 and background mask to 0, because  pred should have unique target
+        fore_mask[index] = 1.
+        back_mask[index] = 0
+
+    return encode_truths, fore_mask > 0, scale, back_mask
+
+def encode_targets_single(input_wh, truths, labels, best_anchor_idx, anchors, anchors_mask, back_mask, grid_wh):
+    grid_w, grid_h = grid_wh[0], grid_wh[1]
+    num_pred = grid_w * grid_h * len(anchors_mask)
+    scale = torch.ones(num_pred).cuda()
+    encode_truths = torch.zeros((num_pred, 6)).cuda()
+    fore_mask = torch.zeros(num_pred).cuda()
+
+    for i in range(best_anchor_idx.size(0)):
+        mask_n = int_index(anchors_mask, best_anchor_idx[i])
+        if mask_n < 0:
+            continue
+        x = (truths[i][0] / input_wh[0]) * grid_wh[0]  
+        y = (truths[i][1] / input_wh[1]) * grid_wh[1]
+        floor_x, floor_y = math.floor(x), math.floor(y)
+        index = floor_y * grid_wh[0] * 3 + floor_x * 3 + mask_n
+        scale[index] = scale[index] + 1. - (truths[i][2] / input_wh[0]) * (truths[i][3] / input_wh[1])
+        truths[i][0] = x - floor_x
+        truths[i][1] = y - floor_y
+        truths[i][2] = torch.log(truths[i][2] / anchors[best_anchor_idx[i]][0] + 1e-8)
+        truths[i][3] = torch.log(truths[i][3] / anchors[best_anchor_idx[i]][1] + 1e-8)
+        encode_truths[index, :4] = truths[i]
+        encode_truths[index, 4] = 1.
+        encode_truths[index, 5] = labels[i].int().item()
+        fore_mask[index] = 1.
+        back_mask[index] = 0
+
+    return encode_truths, fore_mask > 0, scale, back_mask
+
+def targets_match_single(input_wh, threshold, targets, pred, anchors, anchors_mask, pred_t, scale_t, fore_mask_t, back_mask_t, grid_wh, idx, cuda=True):
+    loc_truths = targets[:, :4].data
+    labels = targets[:,-1].data
+    overlaps = jaccard(
+        loc_truths, 
+        point_form(pred))
+    # (Bipartite Matching)
+    # [1,num_objects] best prior for each ground truth
+    # best_prior_overlap, best_prior_idx = overlaps.max(1, keepdim=True)
+    # [1,num_priors] best ground truth for each prior
+
+    best_truth_overlap, best_truth_idx = overlaps.max(0, keepdim=True)
+    best_truth_idx.squeeze_(0)
+    best_truth_overlap.squeeze_(0)
+    back_mask = (best_truth_overlap - threshold) < 0
+
+    anchors = torch.FloatTensor(anchors)    
+    if cuda:
+        anchors = anchors.cuda()
+
+    center_truths = center_size(loc_truths)
+
+    # convert anchor and truths to calculate iou
+    new_anchors = trans_anchors(anchors)
+    new_truths = trans_truths(center_truths)
+    overlaps_ = jaccard(
+        new_truths,
+        new_anchors)
+    best_anchor_overlap, best_anchor_idx = overlaps_.max(1, keepdim=True)
+    best_anchor_idx.squeeze_(1)
+    best_anchor_overlap.squeeze_(1)
+
+    encode_truths, fore_mask, scale, back_mask = encode_targets_single(input_wh, center_truths, labels, best_anchor_idx, anchors, anchors_mask, back_mask, grid_wh)
+
+    pred_t[idx] = encode_truths
+    scale_t[idx] = scale
+    fore_mask_t[idx] = fore_mask
+    back_mask_t[idx] = back_mask       
+
+def targets_match_all(input_wh, threshold, targets, pred, anchors, feature_dim, pred_t, scale_t, fore_mask_t, back_mask_t, num_pred, idx, cuda=True):
+    loc_truths = targets[:, :4].data
+    labels = targets[:,-1].data
+    overlaps = jaccard(
+        loc_truths, 
+        point_form(pred))
+    # (Bipartite Matching)
+    # [1,num_objects] best prior for each ground truth
+    # best_prior_overlap, best_prior_idx = overlaps.max(1, keepdim=True)
+    # [1,num_priors] best ground truth for each prior
+
+    best_truth_overlap, best_truth_idx = overlaps.max(0, keepdim=True)
+    best_truth_idx.squeeze_(0)
+    best_truth_overlap.squeeze_(0)
+    back_mask = (best_truth_overlap - threshold) < 0
+
+    anchors = torch.FloatTensor(anchors)    
+    if cuda:
+        anchors = anchors.cuda()
+
+    center_truths = center_size(loc_truths)
+    new_anchors = trans_anchors(anchors)
+    new_truths = trans_truths(center_truths)
+    overlaps_ = jaccard(
+        new_truths,
+        new_anchors)
+    best_anchor_overlap, best_anchor_idx = overlaps_.max(1, keepdim=True)
+    best_anchor_idx.squeeze_(1)
+    best_anchor_overlap.squeeze_(1)
+
+    encode_truths, fore_mask, scale, back_mask = encode_targets_all(input_wh, center_truths, labels, best_anchor_idx, anchors, feature_dim, num_pred, back_mask)
+
+    pred_t[idx] = encode_truths
+    scale_t[idx] = scale
+    fore_mask_t[idx] = fore_mask
+    back_mask_t[idx] = back_mask
+
+def decode(prediction, input_wh, anchors, num_classes, stride_wh, cuda=True):
+    grid_wh = (input_wh[0] // stride_wh[0], input_wh[1] // stride_wh[1])
+    grid_w = np.arange(grid_wh[0])
+    grid_h = np.arange(grid_wh[1])
+    a,b = np.meshgrid(grid_w, grid_h)    
+
     num_anchors = len(anchors)
-    
-    anchors = [(a[0]/stride, a[1]/stride) for a in anchors]
-
-    prediction = prediction.view(batch_size, bbox_attrs*num_anchors, grid_size*grid_size)
-    prediction = prediction.transpose(1,2).contiguous()
-    prediction = prediction.view(batch_size, grid_size*grid_size*num_anchors, bbox_attrs)
-
-    #Sigmoid the  centre_X, centre_Y. and object confidencce
-    prediction[:,:,0] = torch.sigmoid(prediction[:,:,0])
-    prediction[:,:,1] = torch.sigmoid(prediction[:,:,1])
-    prediction[:,:,4] = torch.sigmoid(prediction[:,:,4])
-    
-    #Add the center offsets
-    grid_len = np.arange(grid_size)
-    a,b = np.meshgrid(grid_len, grid_len)
-    
     x_offset = torch.FloatTensor(a).view(-1,1)
     y_offset = torch.FloatTensor(b).view(-1,1)
-    
-    if CUDA:
+    anchors = [(a[0]/stride_wh[0], a[1]/stride_wh[1]) for a in anchors]
+    if cuda:
         x_offset = x_offset.cuda()
         y_offset = y_offset.cuda()
-    
-    x_y_offset = torch.cat((x_offset, y_offset), 1).repeat(1,num_anchors).view(-1,2).unsqueeze(0)
-    
+    x_y_offset = torch.cat((x_offset, y_offset), 1).repeat(1, num_anchors).view(-1,2).unsqueeze(0)
     prediction[:,:,:2] += x_y_offset
-      
-    #log space transform height and the width
-    anchors = torch.FloatTensor(anchors)
-    
-    if CUDA:
+    anchors = torch.FloatTensor(anchors)    
+    if cuda:
         anchors = anchors.cuda()
-    
-    anchors = anchors.repeat(grid_size*grid_size, 1).unsqueeze(0)
-    prediction[:,:,2:4] = torch.exp(prediction[:,:,2:4])*anchors
-
-    #Softmax the class scores
-    prediction[:,:,5: 5 + num_classes] = torch.sigmoid((prediction[:,:, 5 : 5 + num_classes]))
-
-    prediction[:,:,:4] *= stride 
+    anchors = anchors.repeat(grid_wh[0]*grid_wh[1], 1).unsqueeze(0)
+    prediction[:,:,2:4] = torch.exp(prediction[:,:,2:4]) * anchors
+    prediction[:,:,0] *= stride_wh[0]
+    prediction[:,:,2] *= stride_wh[0]
+    prediction[:,:,1] *= stride_wh[1]
+    prediction[:,:,3] *= stride_wh[1]
     return prediction
 
-def get_results(prediction, confidence, num_classes, nms_conf = 0.4):
-    st = time.time()
-    conf_mask = (prediction[:,:,4] > confidence).float().unsqueeze(2)
-    prediction = prediction*conf_mask
+def permute_sigmoid(x, input_wh, num_anchors, num_classes):
+    batch_size = x.size(0)
+    grid_wh = (x.size(3), x.size(2))
+    input_w, input_h = input_wh
+    stride_wh = (input_w // grid_wh[0], input_h // grid_wh[1])
+    bbox_attrs = 5 + num_classes
+    x = x.view(batch_size, bbox_attrs*num_anchors, grid_wh[0] * grid_wh[1])
+    x = x.transpose(1,2).contiguous()
+    x = x.view(batch_size, grid_wh[0]*grid_wh[1]*num_anchors, bbox_attrs)
+    x[:,:,0] = torch.sigmoid(x[:,:,0])
+    x[:,:,1] = torch.sigmoid(x[:,:,1])             
+    x[:,:, 4 : bbox_attrs] = torch.sigmoid((x[:,:, 4 : bbox_attrs]))
+    return x, stride_wh
+
+def detection_postprecess(detection, iou_thresh, num_classes, input_wh, ori_wh, use_pad=False, nms_conf=0.4):
+    assert detection.size(0) == 1, "only support batch_size == 1"
+    conf_mask = (detection[:,:,4] > iou_thresh).float().unsqueeze(2)
+    detection = detection * conf_mask
     try:
-        ind_nz = torch.nonzero(prediction[:,:,4]).transpose(0,1).contiguous()
+        ind_nz = torch.nonzero(detection[:,:,4]).transpose(0,1).contiguous()
     except:
-        return 0
-    box_a = prediction.new(prediction.shape)
-    box_a[:,:,0] = (prediction[:,:,0] - prediction[:,:,2]/2)
-    box_a[:,:,1] = (prediction[:,:,1] - prediction[:,:,3]/2)
-    box_a[:,:,2] = (prediction[:,:,0] + prediction[:,:,2]/2) 
-    box_a[:,:,3] = (prediction[:,:,1] + prediction[:,:,3]/2)
-    prediction[:,:,:4] = box_a[:,:,:4]
-    batch_size = prediction.size(0)
-    output = prediction.new(1, prediction.size(2) + 1)
-    write = False
+        print("detect no results")
+        return np.empty([0, 5], dtype=np.float32)
+    bbox_pred = point_form(detection[:, :, :4].view(-1, 4))
+    conf_pred = detection[:, :, 4].view(-1, 1)
+    cls_pred = detection[:, :, 5:].view(-1, num_classes)
 
-    for ind in range(batch_size):
-        st = time.time()
-        image_pred = prediction[ind]
-        #Get the class having maximum score, and the index of that class
-        #Get rid of num_classes softmax scores 
-        #Add the class index and the class score of class having maximum score
-        max_conf, max_conf_score = torch.max(image_pred[:,5:5+ num_classes], 1)
-        max_conf = max_conf.float().unsqueeze(1)
-        max_conf_score = max_conf_score.float().unsqueeze(1)
-        seq = (image_pred[:,:5], max_conf, max_conf_score)
-        image_pred = torch.cat(seq, 1)
-        #Get rid of the zero entries
-        non_zero_ind =  (torch.nonzero(image_pred[:,4]))
- 
-        image_pred_ = image_pred[non_zero_ind.squeeze(),:].view(-1,7)
-        #Get the various classes detected in the image
-        try:
-            img_classes = unique(image_pred_[:,-1])
-        except:
-             continue
+    max_conf, max_conf_idx = torch.max(cls_pred, 1) 
 
-        for cls in img_classes:
-            cls_mask = image_pred_*(image_pred_[:,-1] == cls).float().unsqueeze(1)
-            class_mask_ind = torch.nonzero(cls_mask[:,-2]).squeeze()
-            
-            image_pred_class = image_pred_[class_mask_ind].view(-1,7)
-            keep = nms(image_pred_class.cpu().numpy(), nms_conf, force_cpu=True)
-            image_pred_class = image_pred_class[keep]
-            # print(image_pred_class)
-            batch_ind = image_pred_class.new(image_pred_class.size(0), 1).fill_(ind)
-            seq = batch_ind, image_pred_class
-            if not write:
-                output = torch.cat(seq,1)
-                write = True
-            else:
-                out = torch.cat(seq, 1)
-                output = torch.cat((output, out))
-    
-    return output
+    max_conf = max_conf.float().unsqueeze(1)
+    max_conf_idx = max_conf_idx.float().unsqueeze(1)
 
+    # score = (conf_pred * max_conf).view(-1, 1)
+    score = conf_pred
+    image_pred = torch.cat((bbox_pred, score, max_conf, max_conf_idx), 1)
 
-# def get_results(prediction, confidence, num_classes, nms = True, nms_conf = 0.4):
-#     conf_mask = (prediction[:,:,4] > confidence).float().unsqueeze(2)
-#     prediction = prediction*conf_mask
-    
-
-#     try:
-#         ind_nz = torch.nonzero(prediction[:,:,4]).transpose(0,1).contiguous()
-#     except:
-#         return 0
-    
-    
-#     box_a = prediction.new(prediction.shape)
-#     box_a[:,:,0] = (prediction[:,:,0] - prediction[:,:,2]/2)
-#     box_a[:,:,1] = (prediction[:,:,1] - prediction[:,:,3]/2)
-#     box_a[:,:,2] = (prediction[:,:,0] + prediction[:,:,2]/2) 
-#     box_a[:,:,3] = (prediction[:,:,1] + prediction[:,:,3]/2)
-#     prediction[:,:,:4] = box_a[:,:,:4]
-    
-
-    
-#     batch_size = prediction.size(0)
-    
-#     output = prediction.new(1, prediction.size(2) + 1)
-#     write = False
-
-
-#     for ind in range(batch_size):
-#         #select the image from the batch
-#         image_pred = prediction[ind]
+    non_zero_ind =  (torch.nonzero(image_pred[:,4]))
+    image_pred_ = image_pred[non_zero_ind.squeeze(),:].view(-1, 7)
+    try:
+        img_classes = unique(image_pred_[:,-1])
+    except:
+        print("no class find")
+        return np.empty([0, 7], dtype=np.float32)
+    flag = False
+    out_out = None
+    for cls in img_classes:
+        cls_mask = image_pred_*(image_pred_[:,-1] == cls).float().unsqueeze(1)
+        class_mask_ind = torch.nonzero(cls_mask[:,-2]).squeeze()
         
+        image_pred_class = image_pred_[class_mask_ind].view(-1,7)
+        keep = nms(image_pred_class.cpu().numpy(), nms_conf, force_cpu=True)
+        image_pred_class = image_pred_class[keep]
+        if not flag:
+            out_put = image_pred_class
+            flag = True
+        else:
+            out_put = torch.cat((out_put, image_pred_class), 0)
 
-        
-#         #Get the class having maximum score, and the index of that class
-#         #Get rid of num_classes softmax scores 
-#         #Add the class index and the class score of class having maximum score
-#         max_conf, max_conf_score = torch.max(image_pred[:,5:5+ num_classes], 1)
-#         max_conf = max_conf.float().unsqueeze(1)
-#         max_conf_score = max_conf_score.float().unsqueeze(1)
-#         seq = (image_pred[:,:5], max_conf, max_conf_score)
-#         image_pred = torch.cat(seq, 1)
-        
 
-        
-#         #Get rid of the zero entries
-#         non_zero_ind =  (torch.nonzero(image_pred[:,4]))
+    image_pred_class = out_put
+    if use_pad:
+        scaling_factor = min(input_wh[0] / ori_wh[0], input_wh[1] / ori_wh[1])
+        image_pred_class[:,[0,2]] -= (input_wh[0] - scaling_factor * ori_wh[0]) / 2
+        image_pred_class[:,[1,3]] -= (input_wh[1] - scaling_factor * ori_wh[1]) / 2
+        image_pred_class[:,:4] /= scaling_factor
+    else:
+        image_pred_class[:,[0,2]] /= input_wh[0]
+        image_pred_class[:,[1,3]] /= input_wh[1]
+        image_pred_class[:, [0,2]] *= ori_wh[0]
+        image_pred_class[:, [1,3]] *= ori_wh[1]
 
-        
-#         image_pred_ = image_pred[non_zero_ind.squeeze(),:].view(-1,7)
-#         #Get the various classes detected in the image
-#         try:
-#             img_classes = unique(image_pred_[:,-1])
-#         except:
-#              continue
+    for i in range(image_pred_class.shape[0]):
+        image_pred_class[i, [0,2]] = torch.clamp(image_pred_class[i, [0,2]], 0.0, ori_wh[0])
+        image_pred_class[i, [1,3]] = torch.clamp(image_pred_class[i, [1,3]], 0.0, ori_wh[1])
+    return image_pred_class.cpu().numpy()
 
-#         print(image_pred_.size())
-
-#         for cls in img_classes:
-#             #get the detections with one particular class
-#             cls_mask = image_pred_*(image_pred_[:,-1] == cls).float().unsqueeze(1)
-#             class_mask_ind = torch.nonzero(cls_mask[:,-2]).squeeze()
-            
-
-#             image_pred_class = image_pred_[class_mask_ind].view(-1,7)
-
-#             print(image_pred_class)
-        
-        
-#              #sort the detections such that the entry with the maximum objectness
-#              #confidence is at the top
-#             conf_sort_index = torch.sort(image_pred_class[:,4], descending = True )[1]
-#             image_pred_class = image_pred_class[conf_sort_index]
-#             print("sort ", image_pred_class)
-#             idx = image_pred_class.size(0)
-            
-#             #if nms has to be done
-#             if nms:
-#                 #For each detection
-#                 for i in range(idx):
-#                     #Get the IOUs of all boxes that come after the one we are looking at 
-#                     #in the loop
-#                     try:
-#                         ious = bbox_iou(image_pred_class[i].unsqueeze(0), image_pred_class[i+1:])
-#                     except ValueError:
-#                         break
-        
-#                     except IndexError:
-#                         break
-                    
-#                     #Zero out all the detections that have IoU > treshhold
-#                     iou_mask = (ious < nms_conf).float().unsqueeze(1)
-#                     image_pred_class[i+1:] *= iou_mask       
-                    
-#                     #Remove the non-zero entries
-#                     non_zero_ind = torch.nonzero(image_pred_class[:,4]).squeeze()
-#                     image_pred_class = image_pred_class[non_zero_ind].view(-1,7)
-                    
-                    
-
-#             #Concatenate the batch_id of the image to the detection
-#             #this helps us identify which image does the detection correspond to 
-#             #We use a linear straucture to hold ALL the detections from the batch
-#             #the batch_dim is flattened
-#             #batch is identified by extra batch column
-            
-            
-#             batch_ind = image_pred_class.new(image_pred_class.size(0), 1).fill_(ind)
-#             seq = batch_ind, image_pred_class
-#             if not write:
-#                 output = torch.cat(seq,1)
-#                 write = True
-#             else:
-#                 out = torch.cat(seq,1)
-#                 output = torch.cat((output,out))
-    
-#     return output

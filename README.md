@@ -27,11 +27,37 @@ python convert_darknet.py
 # we will get the convert_yolov3.pth
 ```
 
-# Demo
+## Train
+> We only train voc dataset because we don't have enough gpus to train coco datatset. This is still an experimental repository, we don't reproduce the original results very well.
+
+### dataset
+[merge VOC dataset](https://github.com/yqyao/DRFNet#voc-dataset)
+
+### train
+> you can train multiscale by changing data/config voc_config multiscale
+
+```python
+python train.py --size (416, 416) -b 64 --subdivisions 4 -d VOC
+
+```
+
+### eval
+
+```python
+python eval.py --weights ./weights/convert_yolov3_voc.pth -d VOC --input_wh (416, 416)
+```
+> darknet voc is trained by darknet, pytorch voc is trained by this repository
+
+**results**
+| darknet voc | pytorch voc |
+|:-:          |:-:          |
+| 76.1 %      |      75.2%  |
+
+## Demo
 
 ```python
 
-python demo.py --images images --save_path ./output --weights ./weights/convert_yolov3.pth
+python demo.py --images images --save_path ./output --weights ./weights/convert_yolov3.pth -d COCO
 
 ```
 

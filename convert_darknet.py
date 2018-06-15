@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 
-from model.darknet53 import Darknet53
+from model.yolo import Yolov3
 
 def copy_weights_53(bn, conv, ptr, weights, use_bn=True):
     if use_bn:
@@ -72,13 +72,14 @@ def load_weights_darknet53(weightfile, darknet53):
     weights = np.fromfile(fp, dtype = np.float32)
     print(len(weights))
     ptr = 0
-    first_conv = darknet53.conv
+    extractor = darknet53.extractor
+    first_conv = extractor.conv
     bn = first_conv.bn
     conv = first_conv.conv
     # first conv copy
     ptr = copy_weights_53(bn, conv, ptr, weights)
 
-    layers = [darknet53.layer1, darknet53.layer2, darknet53.layer3, darknet53.layer4, darknet53.layer5]
+    layers = [extractor.layer1, extractor.layer2, extractor.layer3, extractor.layer4, extractor.layer5]
     for layer in layers:
         for i in range(len(layer)):
             if i == 0:
@@ -131,7 +132,7 @@ def load_weights_darknet53(weightfile, darknet53):
             bn = predict_conv_list3[i].bn
             conv = predict_conv_list3[i].conv
             ptr = copy_weights_53(bn, conv, ptr, weights)
-
+    print(ptr)
     fp.close()               
 
 
@@ -162,16 +163,15 @@ def load_weights_darknet19(weightfile, darknet19):
     fp.close()
 
 if __name__ == '__main__':
-    anchors = [(373, 326), (156, 198), (116, 90), 
-                (59, 119), (62, 45), (30, 61), 
-                (33, 23), (16, 30), (10, 13)]
-    num_blocks = [1,2,8,8,4]
+    anchors = [[116, 90], [156, 198], [373, 326], 
+            [30, 61], [62, 45], [59, 119], 
+            [10, 13], [16, 30], [33, 23]]
     input_dim = 416
-    num_classes = 80
-    darknet53 = Darknet53(num_blocks, anchors, input_dim, num_classes)
-    weightfile = "./weights/yolov3.weights"
+    num_classes = 20
+    darknet53 = Yolov3("train", input_dim, anchors, num_classes)
+    weightfile = "./weights/yolov3-voc_final.weights"
     load_weights_darknet53(weightfile, darknet53)
-    torch.save(darknet53.state_dict(), "./weights/convert_yolov3.pth")
+    torch.save(darknet53.state_dict(), "./weights/convert_yolov3-voc.pth")
 
 
 
