@@ -74,7 +74,7 @@ python eval.py --weights ./weights/convert_yolov3_voc.pth -d VOC --input_wh 416 
 
 | darknet voc 608 | darknet voc 416 | pytorch voc 608| pytorch voc 416|
 |:-:              |:-:              | :-:            |:-:             |
-| 77.2 %          |      76.2%      |      ?         |          75.2% |
+| 77.2 %          |      76.2%      |      74.7%     |          74.9% |
 |       27ms      |       18ms      |        27ms    |       18ms     |
 
 ## Demo

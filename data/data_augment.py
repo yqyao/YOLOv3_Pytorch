@@ -42,7 +42,7 @@ def _crop(image, boxes, labels):
             (0.5, None),
             (0.7, None),
             (0.9, None),
-            (None, None),
+            # (None, None),
         ))
 
         if mode is None:
