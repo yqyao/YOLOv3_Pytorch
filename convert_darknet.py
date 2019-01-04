@@ -243,7 +243,7 @@ if __name__ == '__main__':
     load_weights(weightfile, yolov3, version)
     # name = "convert_yolo_" + version + ".pth"
     # save_path = os.path.join("./weights", name)
-    torch.save(darknet53.state_dict(), save_name)
+    torch.save(yolov3.state_dict(), save_name)
 
 
 
