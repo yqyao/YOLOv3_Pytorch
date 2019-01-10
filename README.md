@@ -66,7 +66,7 @@ python train.py --input_wh 416 416 -b 64 --subdivisions 4 -d VOC --basenet ./wei
 
 ```python
 
-python eval.py --weights ./weights/convert_yolov3_voc.pth -d VOC --input_wh 416 416
+python eval.py --weights ./weights/convert_yolov3_voc.pth --dataset VOC --input_wh 416 416
 ```
 > darknet voc is trained by darknet, pytorch voc is trained by this repository
 
